@@ -156,6 +156,7 @@ bool VlanMgr::removeHostVlanMember(int vlan_id, const string &port_alias)
 {
     stringstream cmd;
     string res;
+    int ret;
 
     cmd << BRIDGE_CMD << " vlan del vid " << vlan_id << " dev " << port_alias;
     EXEC_WITH_ERROR_THROW(cmd.str(), res);
@@ -163,12 +164,18 @@ bool VlanMgr::removeHostVlanMember(int vlan_id, const string &port_alias)
     cmd.str("");
     // When port is not member of any VLAN, it shall be detached from Dot1Q bridge!
     cmd << BRIDGE_CMD << " vlan show dev " << port_alias << " | " << GREP_CMD << " None";
-    EXEC_WITH_ERROR_THROW(cmd.str(), res);
-    if (!res.empty())
-    {
-        cmd.str("");
-        cmd << IP_CMD << " link set " << port_alias << " nomaster";
-        EXEC_WITH_ERROR_THROW(cmd.str(), res);
+    ret = swss::exec(cmd.str(), res);
+    ret = WEXITSTATUS(ret);
+    switch (ret) {
+        case 0:
+            cmd.str("");
+            cmd << IP_CMD << " link set " << port_alias << " nomaster";
+            EXEC_WITH_ERROR_THROW(cmd.str(), res);
+            break;
+        case 1:
+            break;
+        default:
+            throw runtime_error(cmd.str() + " : " + res);
     }
 
     return true;
